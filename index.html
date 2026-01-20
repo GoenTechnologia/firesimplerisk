@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binder Fire Simple Risk - Penawaran</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- CSS UTAMA --- */
+        :root { --bg-app: #f0f2f5; --sidebar-width: 420px; --primary: #2c3e50; --accent: #3498db; --border: #ddd; }
+        
+        body { 
+            font-family: 'Roboto', sans-serif; 
+            background: var(--bg-app); 
+            margin: 0; 
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+        
+        /* SIDEBAR (TIDAK DICETAK) */
+        .sidebar { width: var(--sidebar-width); background: white; border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10; box-shadow: 2px 0 10px rgba(0,0,0,0.05); }
+        .sidebar-content { padding: 20px; overflow-y: auto; flex: 1; }
+        .sidebar h2 { color: var(--primary); border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-top: 0; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 5px; }
+        .form-control { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        textarea.form-control { resize: vertical; }
+        
+        .section-box { background: #f8f9fa; padding: 10px; border: 1px solid #eee; border-radius: 4px; margin-bottom: 15px; }
+        .section-title { font-size: 0.8rem; font-weight: bold; color: var(--primary); margin-bottom: 8px; text-transform: uppercase; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+
+        .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #333; margin-bottom: 10px; }
+        .checkbox-group input { cursor: pointer; }
+
+        .risk-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .risk-item { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; cursor: pointer; }
+
+        .tsi-wrapper { background: #fff; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .tsi-row { display: flex; gap: 5px; margin-bottom: 5px; }
+        .btn-add { width: 100%; background: white; border: 1px dashed var(--accent); color: var(--accent); padding: 5px; cursor: pointer; margin-top: 5px; }
+        
+        .sidebar-footer { padding: 15px; background: white; border-top: 1px solid var(--border); }
+        .btn-print { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: bold; }
+        .btn-print:hover { background: #1a252f; }
+
+        /* PREVIEW AREA */
+        .preview { flex: 1; background: #525659; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 30px; }
+        
+        /* KERTAS A4 */
+        .page { 
+            background: white; 
+            width: 210mm; 
+            min-height: 297mm; /* Gunakan min-height agar fleksibel */
+            padding: 20mm; 
+            box-shadow: 0 0 15px rgba(0,0,0,0.3); 
+            font-family: 'Roboto', sans-serif; 
+            font-size: 9pt; /* UKURAN FONT 9pt (Turun 2 size dari 11pt) */
+            line-height: 1.3;
+            color: #000; 
+            position: relative; 
+            box-sizing: border-box; 
+        }
+        
+        .binder-header { 
+            text-align: center; font-weight: bold; font-size: 14pt; 
+            text-decoration: underline; margin-bottom: 20px; 
+            text-transform: uppercase; line-height: 1.2;
+        }
+        
+        table.binder-table { width: 100%; border-collapse: collapse; }
+        table.binder-table td { vertical-align: top; padding: 3px 0; }
+        .c-lbl { width: 25%; font-weight: bold; }
+        .c-sep { width: 2%; text-align: center; }
+        .c-val { width: 73%; text-align: justify; }
+        
+        .clause-list { margin: 0; padding-left: 20px; } 
+        .clause-list li { margin-bottom: 2px; }
+        
+        .rate-table { width: 100%; }
+        .rate-table td { padding: 1px 0; }
+        
+        .calc-box { margin-top: 10px; padding-top: 5px; border-top: 1px solid #000; }
+        .calc-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+        .calc-total { font-weight: bold; border-top: 1px dashed #666; margin-top: 3px; padding-top: 3px; }
+
+        /* --- SETTING PRINT (PENTING) --- */
+        @media print {
+            @page { 
+                size: A4; 
+                margin: 0; 
+            }
+            body { 
+                background: white; 
+                height: auto; 
+                overflow: visible; 
+            }
+            .sidebar { display: none !important; }
+            .preview { 
+                padding: 0; 
+                margin: 0; 
+                background: white; 
+                display: block; 
+                height: auto; 
+                overflow: visible; 
+            }
+            .page { 
+                box-shadow: none; 
+                width: 100%; 
+                min-height: 297mm; /* Pastikan tinggi minimal A4 */
+                margin: 0; 
+                padding: 20mm; /* Margin cetak */
+                page-break-after: always; /* Paksa pindah halaman setelah class .page */
+                border: none;
+            }
+            /* Halaman terakhir tidak perlu break */
+            .page:last-child { page-break-after: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-content">
+            <h2>Data Input</h2>
+            
+            <div class="form-group">
+                <label>Insured Name</label>
+                <input type="text" id="insuredName" class="form-control" oninput="render()">
+            </div>
+            
+            <div class="form-group">
+                <label>Insured Address</label>
+                <textarea id="addressInput" class="form-control" rows="2" placeholder="Jalan, Gedung, No..." oninput="render()"></textarea>
+            </div>
+
+            <div class="section-box">
+                <div class="section-title">Location of Risk</div>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="chkSameLocation" onchange="toggleLocationText()">
+                    <label for="chkSameLocation">Same details as Insured Address</label>
+                </div>
+
+                <div id="riskAddressTextDiv" class="form-group">
+                    <label>Risk Address Details</label>
+                    <textarea id="riskAddressInput" class="form-control" rows="2" placeholder="Detail Alamat Risiko..." oninput="render()"></textarea>
+                </div>
+
+                <div style="background: #eef2f7; padding: 8px; border-radius: 4px; border: 1px dashed #bbb;">
+                    <label style="color:var(--primary); font-size:0.8rem;">Earthquake Zone Determination (Required)</label>
+                    <div style="margin-bottom: 5px;">
+                        <select id="provinsiSelect" class="form-control" onchange="populateCities()">
+                            <option value="">-- Pilih Provinsi --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select id="kotaSelect" class="form-control" onchange="render()">
+                            <option value="">-- Pilih Kota/Kab --</option>
+                        </select>
+                    </div>
+                    <div id="zoneDisplay" style="font-size: 0.8rem; color: green; margin-top: 5px; font-weight: bold; text-align: right;"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Inception Date</label>
+                <input type="date" id="startDate" class="form-control" onchange="render()">
+            </div>
+
+            <div class="form-group">
+                <label>Occupation</label>
+                <select id="occupationSelect" class="form-control" onchange="render()">
+                    <option value="">-- Select Occupation --</option>
+                </select>
+            </div>
+
+            <div class="section-box">
+                <div class="section-title">Sum Insured & Risks</div>
+                <div class="tsi-wrapper">
+                    <div id="tsiContainer"></div>
+                    <button type="button" class="btn-add" onclick="addTsiRow()">+ Add Item</button>
+                    <div style="text-align: right; font-weight: bold; margin-top: 5px;" id="totalInputDisplay">IDR 0</div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <label style="font-size:0.85rem; font-weight:600; margin-bottom:5px; display:block;">Additional Risks:</label>
+                    <div class="risk-options">
+                        <label class="risk-item"><input type="checkbox" id="chk_rsmd" onchange="render()"> RSMDCC</label>
+                        <label class="risk-item"><input type="checkbox" id="chk_tsfwd" onchange="render()"> TSFWD</label>
+                        <label class="risk-item"><input type="checkbox" id="chk_others" onchange="render()"> Others</label>
+                        <label class="risk-item"><input type="checkbox" id="chk_eq" onchange="render()"> EQVETS</label>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="sidebar-footer">
+            <button class="btn-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
+        </div>
+    </div>
+
+    <div class="preview">
+        
+        <div class="page">
+            <div class="binder-header">SURAT PENAWARAN<br>FIRE SIMPLE RISK</div>
+            <table class="binder-table">
+                <tr><td class="c-lbl">Type</td><td class="c-sep">:</td><td class="c-val" id="outType"></td></tr>
+                
+                <tr><td class="c-lbl">Insured Name</td><td class="c-sep">:</td><td class="c-val"><strong id="outName">TBA</strong></td></tr>
+                <tr><td class="c-lbl">Address</td><td class="c-sep">:</td><td class="c-val" id="outAddress">Indonesian territory</td></tr>
+                <tr><td class="c-lbl">Insurance Period</td><td class="c-sep">:</td><td class="c-val" id="outPeriod">To be advised</td></tr>
+                <tr><td class="c-lbl">Occupation</td><td class="c-sep">:</td><td class="c-val" id="outOccupation">As Per Attachment</td></tr>
+                <tr><td class="c-lbl">Location Of Risks</td><td class="c-sep">:</td><td class="c-val" id="outLocation">Indonesian territory</td></tr>
+                
+                <tr><td class="c-lbl">Total Sum Insured</td><td class="c-sep">:</td><td class="c-val"><strong id="outTotalSum">IDR 0</strong><div id="outTsiDetails" style="font-size:0.9em; margin-top:5px;"></div></td></tr>
+                <tr><td class="c-lbl">Main Coverage</td><td class="c-sep">:</td><td class="c-val">FLEXAS</td></tr>
+                <tr><td class="c-lbl">Additional Coverage</td><td class="c-sep">:</td><td class="c-val" id="outAddCoverage">-</td></tr>
+                <tr>
+                    <td class="c-lbl">Deductible</td><td class="c-sep">:</td>
+                    <td class="c-val">
+                        <b>FLEXAS:</b> Nil, except code 2934/2930/29395/29312 /29311/2933/23002/23003: 5% of Claim or 0.1% of TSI (whichever is higher)
+                        <span id="deductible_rsmd"></span>
+                        <span id="deductible_tsfwd"></span>
+                        <span id="deductible_others"></span>
+                        <span id="deductible_eq"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="c-lbl" style="padding-top:10px">Mandatory Clause</td><td class="c-sep" style="padding-top:10px">:</td>
+                    <td class="c-val" style="padding-top:10px">
+                        <ol class="clause-list">
+                            <li>R1189_Alterations Clause (30 Days)</li>
+                            <li>R1196_Appraisement Clause (5% of TSI)</li>
+                            <li>R1010_Average Relief Clause</li>
+                            <li>R1016_Civil Authorities Clause</li>
+                            <li>R1203_Communicable Disease Exclusion (For use on property policies)</li>
+                            <li>R1120_Electronic Date Recognition Clause Edrc (A) - Nma 2800</li>
+                            <li>R1195_Fire Brigades Charges Clause (5,000,000)</li>
+                            <li>R1192_Refill Of Fire Extinguisher Clause (5,000,000)</li>
+                            <li>R1135_Information Technology Hazards Clarification Clause (Nma 2912)</li>
+                            <li>R1193_Loss Notification Clause (30 Days)</li>
+                            <li>R1198_OJK Mandatory Clause</li>
+                            <li>R1049_Payment On Account Clause (10%)</li>
+                            <li>R1228_Prorata Return Premium Clause (Subject To No Claim)</li>
+                            <li>R1225_Removal Of Debris Clause 10% of Claim</li>
+                            <li>R1176_Waiver Of Subrogation Clause</li>
+                            <li>R1199_War & Terrorism Exclusion Clause (NMA 2918)</li>
+                        </ol>
+                    </td>
+                </tr>
+            </table>
+            <div style="margin-top:20px; text-align:right; font-size:0.8em;">Page 1 of 2</div>
+        </div>
+
+        <div class="page">
+            <div class="binder-header" style="font-size:12pt;">CLAUSES & CONDITIONS</div>
+            <table class="binder-table">
+                <tr>
+                    <td class="c-lbl">Optional Clause</td><td class="c-sep">:</td>
+                    <td class="c-val">
+                        <ol class="clause-list">
+                            <li>R1057_Riots, Strikes, Malicious Damage And Civil Commotions Endorsement (Code 4.1b-2007) → applicable for PAR/Fire</li>
+                            <li>R1076_Flood, Windstorm, Tempest And Water Damage Endorsement (Code 4.3 A) applicable for PAR/Fire</li>
+                            <li>R1217_Typhoon, Storm, Flood, Water Damage, Landslide, Landslip And Subsidence Exclusion Clause → applicable for PAR</li>
+                            <li>R1201_Burglary Extension Clause (forcible & violent entry exit) → applicable for PAR</li>
+                            <li>R1221_Impact By Own Vehicle Clause → applicable for PAR</li>
+                            <li>R1032_Earthquake Exclusion Clause applicable for PAR</li>
+                            <li>R1172_Time Adjustment Clause (72 Hours) → applicable for PAR</li>
+                            <li>R1012_Bankers Clause → applicable for Bank Segment</li>
+                        </ol>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="c-lbl" style="padding-top:10px">Premium Rate</td><td class="c-sep" style="padding-top:10px">:</td>
+                    <td class="c-val" style="padding-top:10px">
+                        <table class="rate-table">
+                            <tbody id="rateTableBody"></tbody>
+                        </table>
+                        <div class="calc-box" id="calcSection">
+                            <b>Calculation Premium</b>
+                            <div style="margin-top: 5px;">
+                                <div class="calc-row"><span>Total Sum Insured</span><span id="calcTsi">IDR 0</span></div>
+                                <div class="calc-row"><span>Total Rate</span><span id="calcRate">0.0000%</span></div>
+                                <div class="calc-row calc-total"><span>Premium</span><span id="calcPremium">IDR 0</span></div>
+                                <div style="margin-top: 5px; font-style: italic; font-size: 0.9em;">(premium diatas, belum termasuk biaya polis)</div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="c-lbl" style="padding-top:10px">Security</td><td class="c-sep" style="padding-top:10px">:</td>
+                    <td class="c-val" style="padding-top:10px">PT ASURANSI TUGU PRATAMA INDONESIA, Tbk (share 100% of TSI)</td>
+                </tr>
+            </table>
+            
+            <div style="margin-top:50px;">
+                <div id="outDateSign">Jakarta, Today</div>
+                <div style="margin-top:5px;"><strong>PT. Asuransi Tugu Pratama Indonesia, Tbk</strong></div>
+                <br><br><br><br>
+                <div><strong>Authorized Signatory</strong></div>
+            </div>
+            
+            <div style="margin-top:50px; text-align:right; font-size:0.8em;">Page 2 of 2</div>
+        </div>
+    </div>
+
+    <script src="data_okupasi.js"></script>
+    <script src="data_zona.js"></script>
+
+    <script>
+        // --- DATA TARIF GEMPA OJK (per mil) ---
+        const eqRateDwelling = { "1": 0.76, "2": 0.79, "3": 1.04, "4": 1.35, "5": 1.60 };
+        const eqRateCommercial = { "1": 0.75, "2": 0.76, "3": 1.00, "4": 1.43, "5": 1.90 };
+
+        // --- INIT ---
+        function toggleLocationText() {
+            const isSame = document.getElementById('chkSameLocation').checked;
+            const manualDiv = document.getElementById('riskAddressTextDiv');
+            manualDiv.style.display = isSame ? 'none' : 'block';
+            render();
+        }
+
+        const occSelect = document.getElementById('occupationSelect');
+        occupationData.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.code;
+            opt.text = `${item.code} - ${item.name.substring(0, 50)}...`;
+            occSelect.appendChild(opt);
+        });
+
+        const provSelect = document.getElementById('provinsiSelect');
+        const sortedProv = Object.keys(zonaGempaData).sort();
+        sortedProv.forEach(prov => {
+            const opt = document.createElement('option');
+            opt.value = prov;
+            opt.text = prov;
+            provSelect.appendChild(opt);
+        });
+
+        function populateCities() {
+            const prov = document.getElementById('provinsiSelect').value;
+            const citySelect = document.getElementById('kotaSelect');
+            citySelect.innerHTML = '<option value="">-- Pilih Kota/Kab --</option>';
+
+            if(prov && zonaGempaData[prov]) {
+                const cities = Object.keys(zonaGempaData[prov]).sort();
+                cities.forEach(city => {
+                    const opt = document.createElement('option');
+                    opt.value = city;
+                    opt.text = city;
+                    citySelect.appendChild(opt);
+                });
+            }
+            render();
+        }
+
+        function addTsiRow(label="Item", val=0) {
+            const div = document.createElement('div');
+            div.className = 'tsi-row';
+            div.innerHTML = `
+                <input type="text" class="form-control tsi-name" placeholder="Item Name" value="${label}">
+                <input type="number" class="form-control tsi-val" placeholder="0" value="${val}" oninput="render()">
+                <button onclick="this.parentElement.remove(); render()" style="background:red; color:white; border:none;">x</button>
+            `;
+            document.getElementById('tsiContainer').appendChild(div);
+            render();
+        }
+        addTsiRow("Building", 0);
+        addTsiRow("Contents", 0);
+
+        // --- RENDER LOGIC ---
+        function render() {
+            // A. Identity
+            document.getElementById('outName').innerText = document.getElementById('insuredName').value || "TBA (As per declaration)";
+            const insuredAddr = document.getElementById('addressInput').value;
+            document.getElementById('outAddress').innerText = insuredAddr || "Indonesian territory";
+
+            // B. Date
+            const dateVal = document.getElementById('startDate').value;
+            if(dateVal) {
+                const d = new Date(dateVal);
+                const e = new Date(d); e.setFullYear(d.getFullYear()+1);
+                const opts = { day: 'numeric', month: 'long', year: 'numeric' };
+                document.getElementById('outPeriod').innerHTML = 
+                    `${d.toLocaleDateString('id-ID', opts)} to ${e.toLocaleDateString('id-ID', opts)}<br>` + 
+                    `(both dates inclusive) at 12:00 noon local time (Subject to no claim and/or losses up to binding / confirmation date)`;
+                
+                document.getElementById('outDateSign').innerText = `Jakarta, ${new Date().toLocaleDateString('id-ID', opts)}`;
+            } else {
+                document.getElementById('outPeriod').innerText = "Up to 12 Months from the date to be advised...";
+                const opts = { day: 'numeric', month: 'long', year: 'numeric' };
+                document.getElementById('outDateSign').innerText = `Jakarta, ${new Date().toLocaleDateString('id-ID', opts)}`;
+            }
+
+            // C. Occupation & Flexas Rate
+            const code = occSelect.value;
+            const occData = occupationData.find(x => x.code === code);
+            let flexasRate = 0;
+            if(occData) {
+                document.getElementById('outOccupation').innerText = `${occData.name} (Code: ${code})`;
+                flexasRate = occData.rate;
+            } else {
+                document.getElementById('outOccupation').innerText = "As Per Attachment";
+            }
+
+            // D. Location & Zone
+            const isSameLoc = document.getElementById('chkSameLocation').checked;
+            const prov = document.getElementById('provinsiSelect').value;
+            const city = document.getElementById('kotaSelect').value;
+            
+            let locText = isSameLoc ? (insuredAddr || "Same as Insured Address") : (document.getElementById('riskAddressInput').value || "Indonesian territory");
+            let currentZone = "";
+            let regionSuffix = "";
+            
+            if (prov && city) {
+                currentZone = zonaGempaData[prov][city];
+                regionSuffix = `<br>(${city}, ${prov} - Zona Gempa: ${currentZone})`;
+                document.getElementById('zoneDisplay').innerText = `Zone: ${currentZone}`;
+            } else {
+                document.getElementById('zoneDisplay').innerText = "Zone: ?";
+            }
+            
+            document.getElementById('outLocation').innerHTML = locText + regionSuffix;
+
+            // E. TSI
+            let totalSum = 0;
+            let tsiHtml = "";
+            document.querySelectorAll('.tsi-row').forEach(row => {
+                const n = row.querySelector('.tsi-name').value;
+                const v = parseFloat(row.querySelector('.tsi-val').value) || 0;
+                totalSum += v;
+                if(v > 0) tsiHtml += `<div>${n}: ${new Intl.NumberFormat('id-ID', {style:'currency', currency:'IDR'}).format(v)}</div>`;
+            });
+            document.getElementById('outTotalSum').innerText = "Up to " + new Intl.NumberFormat('id-ID', {style:'currency', currency:'IDR'}).format(totalSum);
+            document.getElementById('totalInputDisplay').innerText = new Intl.NumberFormat('id-ID', {style:'currency', currency:'IDR'}).format(totalSum);
+            document.getElementById('outTsiDetails').innerHTML = tsiHtml;
+
+            // F. Risks & Type
+            const isRsmd = document.getElementById('chk_rsmd').checked;
+            const isTsfwd = document.getElementById('chk_tsfwd').checked;
+            const isOthers = document.getElementById('chk_others').checked;
+            const isEq = document.getElementById('chk_eq').checked;
+            
+            const isAnyParRisk = isRsmd || isTsfwd || isOthers;
+            let typeHtml = "";
+            if(!isAnyParRisk && !isEq) {
+                typeHtml = `Fire Insurance<br>- Indonesian Fire Insurance Standard Policy (PSAKI)`;
+            } else if(!isAnyParRisk && isEq) {
+                typeHtml = `Fire Insurance<br>Earthquake Insurance<br>- Indonesian Fire Insurance Standard Policy (PSAKI)<br>- Indonesian Earthquake Insurance Standard Policy (PSAGBI)`;
+            } else if(isAnyParRisk && !isEq) {
+                typeHtml = `Property "All" Risk Insurance<br>- PAR Munich Re standard wording`;
+            } else if(isAnyParRisk && isEq) {
+                typeHtml = `Property "All" Risk Insurance<br>Earthquake Insurance<br>- PAR Munich Re standard wording<br>- Indonesian Earthquake Insurance Standard Policy (PSAGBI)`;
+            }
+            document.getElementById('outType').innerHTML = typeHtml;
+
+            let addCovList = [];
+            if(isRsmd) addCovList.push("RSMDCC");
+            if(isTsfwd) addCovList.push("TSFWD");
+            if(isOthers) addCovList.push("Others");
+            if(isEq) addCovList.push("EQVETS");
+            document.getElementById('outAddCoverage').innerHTML = addCovList.length > 0 ? addCovList.join("<br>") : "-";
+
+            document.getElementById('deductible_rsmd').innerHTML = isRsmd ? "<br><b>RSMDCC:</b> 10% of claim minimum IDR 10,000,000.-" : "";
+            document.getElementById('deductible_tsfwd').innerHTML = isTsfwd ? "<br><b>TSFWD:</b> 10% of claim amount minimum IDR 10,000,000.-" : "";
+            document.getElementById('deductible_others').innerHTML = isOthers ? "<br><b>Others:</b> IDR 1,000,000.00" : "";
+            document.getElementById('deductible_eq').innerHTML = isEq ? "<br><b>EQVETS:</b> 2.5% of total sum insured" : "";
+
+            // G. Rate & Calc
+            const tableBody = document.getElementById('rateTableBody');
+            tableBody.innerHTML = "";
+            let totalRateVal = flexasRate; 
+
+            // FLEXAS
+            tableBody.innerHTML += `<tr><td width="100"><b>FLEXAS</b></td><td>: ${flexasRate > 0 ? flexasRate + '%' : 'as per OJK'}</td></tr>`;
+            
+            // RSMDCC
+            if(isRsmd) {
+                totalRateVal += 0.0001;
+                tableBody.innerHTML += `<tr><td><b>RSMDCC</b></td><td>: 0.0001% (minimum rate)</td></tr>`;
+            }
+            
+            // TSFWD
+            if(isTsfwd) {
+                let tsfwdRate = 0.045; 
+                const highRiskProvs = ["DKI JAKARTA", "BANTEN", "JAWA BARAT"];
+                if(highRiskProvs.includes(prov)) tsfwdRate = 0.050;
+                totalRateVal += tsfwdRate;
+                tableBody.innerHTML += `<tr><td><b>TSFWD</b></td><td>: ${tsfwdRate}%</td></tr>`;
+            }
+            
+            // Others
+            if(isOthers) {
+                totalRateVal += 0.0001;
+                tableBody.innerHTML += `<tr><td><b>Others</b></td><td>: 0.0001% (minimum rate)</td></tr>`;
+            }
+            
+            // EQ
+            if(isEq) {
+                let eqRatePercent = 0;
+                let eqText = "";
+                if (currentZone) {
+                    let perMil = 0;
+                    if(code === "2976") {
+                        perMil = eqRateDwelling[currentZone] || 0;
+                    } else {
+                        perMil = eqRateCommercial[currentZone] || 0;
+                    }
+                    eqRatePercent = perMil / 10;
+                    eqText = `${eqRatePercent.toFixed(4)}% [Zone ${currentZone}]`;
+                } else {
+                    eqText = "as per zone OJK (Select City)";
+                }
+                totalRateVal += eqRatePercent;
+                tableBody.innerHTML += `<tr><td><b>EQ</b></td><td>: ${eqText}</td></tr>`;
+            }
+
+            const premiumVal = totalSum * (totalRateVal / 100);
+            document.getElementById('calcTsi').innerText = new Intl.NumberFormat('id-ID', {style:'currency', currency:'IDR'}).format(totalSum);
+            document.getElementById('calcRate').innerText = totalRateVal.toFixed(5) + '%';
+            document.getElementById('calcPremium').innerText = new Intl.NumberFormat('id-ID', {style:'currency', currency:'IDR'}).format(premiumVal);
+        }
+
+        render();
+    </script>
+</body>
+</html>
